@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Pakiza OT - monthly overtime calculator">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<title>Pakiza OT</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7f7;color:#17202a}
+header{background:#0f766e;color:#fff;padding:18px 16px;text-align:center}
+header h1{margin:0;font-size:26px}header p{margin:6px 0 0;opacity:.9}
+main{max-width:720px;margin:auto;padding:14px}
+.card{background:#fff;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 10px #00000012}
+h2{font-size:18px;margin:0 0 12px}
+label{display:block;font-size:14px;font-weight:700;margin:10px 0 5px}
+input{width:100%;padding:12px;border:1px solid #ccd6d6;border-radius:9px;font-size:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rule{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}
+.rule:last-child{border-bottom:0}
+.total{font-size:21px;font-weight:800;margin-top:8px}
+button{width:100%;padding:13px;border:0;border-radius:10px;font-size:16px;font-weight:700;margin-top:9px;background:#0f766e;color:#fff}
+button.secondary{background:#334155}button.danger{background:#b91c1c}
+.small{font-size:12px;color:#64748b}.record{padding:10px 0;border-bottom:1px solid #eee}
+@media(max-width:500px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>Pakiza OT</h1><p>Monthly Overtime Calculator</p></header>
+<main>
+<section class="card">
+<h2>Employee Profile</h2>
+<div class="grid">
+<div><label>Employee Name</label><input id="name" placeholder="Name"></div>
+<div><label>Employee ID</label><input id="empId" placeholder="ID"></div>
+</div>
+<label>Department</label><input id="dept" placeholder="Department">
+</section>
+
+<section class="card">
+<h2>Monthly Record</h2>
+<label>Month</label><input id="month" type="month">
+<label>Basic Monthly Salary</label><input id="salary" type="number" min="0" step="0.01" placeholder="0">
+<label>OT Rate / Hour</label><input id="rate" type="number" min="0" step="0.01" placeholder="0">
+</section>
+
+<section class="card">
+<h2>OT Schedule</h2>
+<div class="rule"><span>2 Fridays × 6 hours</span><b>12 h</b></div>
+<div class="rule"><span>2 Fridays × 18 hours</span><b>36 h</b></div>
+<div class="rule"><span>2 day-shift weeks</span><b>36 h</b></div>
+<div class="rule"><span>2 night-shift weeks</span><b>48 h</b></div>
+<div class="rule total"><span>Total OT</span><span>132 h</span></div>
+</section>
+
+<section class="card">
+<h2>Calculation</h2>
+<div class="rule"><span>OT Hours</span><b id="hours">132</b></div>
+<div class="rule"><span>OT Pay</span><b id="otPay">0.00</b></div>
+<div class="rule total"><span>Salary + OT</span><span id="grand">0.00</span></div>
+<button onclick="calculate()">Calculate</button>
+<button onclick="saveRecord()">Save Monthly Record</button>
+<button class="secondary" onclick="exportCSV()">Export CSV</button>
+</section>
+
+<section class="card">
+<h2>Saved Records</h2>
+<div id="records"><p class="small">No records saved yet.</p></div>
+<button class="danger" onclick="clearRecords()">Clear Saved Records</button>
+</section>
+</main>
+
+<script>
+const OT_HOURS=132;
+let records=JSON.parse(localStorage.getItem('pakizaOTRecords')||'[]');
+const $=id=>document.getElementById(id);
+function money(n){return Number(n||0).toFixed(2)}
+function calculate(){
+ const salary=Number($('salary').value)||0, rate=Number($('rate').value)||0;
+ const ot=OT_HOURS*rate;
+ $('hours').textContent=OT_HOURS;
+ $('otPay').textContent=money(ot);
+ $('grand').textContent=money(salary+ot);
+}
+function saveRecord(){
+ calculate();
+ const rec={name:$('name').value,empId:$('empId').value,dept:$('dept').value,month:$('month').value,
+ salary:Number($('salary').value)||0,rate:Number($('rate').value)||0,otHours:OT_HOURS,
+ otPay:OT_HOURS*(Number($('rate').value)||0),total:(Number($('salary').value)||0)+OT_HOURS*(Number($('rate').value)||0)};
+ records.unshift(rec); localStorage.setItem('pakizaOTRecords',JSON.stringify(records)); renderRecords();
+}
+function renderRecords(){
+ if(!records.length){$('records').innerHTML='<p class="small">No records saved yet.</p>';return}
+ $('records').innerHTML=records.map((r,i)=>`<div class="record"><b>${r.name||'Unnamed'}</b> — ${r.month||'No month'}<br>OT: ${money(r.otPay)} | Total: ${money(r.total)}<br><span class="small">${r.empId||''} ${r.dept?'· '+r.dept:''}</span></div>`).join('');
+}
+function exportCSV(){
+ if(!records.length){alert('No saved records.');return}
+ const head=['Name','Employee ID','Department','Month','Basic Salary','OT Rate/Hour','OT Hours','OT Pay','Total Salary'];
+ const rows=records.map(r=>[r.name,r.empId,r.dept,r.month,r.salary,r.rate,r.otHours,r.otPay,r.total]);
+ const csv=[head,...rows].map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Pakiza_OT_records.csv';a.click();URL.revokeObjectURL(a.href);
+}
+function clearRecords(){if(confirm('Delete all saved records?')){records=[];localStorage.removeItem('pakizaOTRecords');renderRecords()}}
+renderRecords(); calculate();
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js'))}
+</script>
+</body>
+</html>
